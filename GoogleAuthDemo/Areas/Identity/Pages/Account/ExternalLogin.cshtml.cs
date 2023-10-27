@@ -17,6 +17,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
+using Google.Apis.Calendar.v3.Data;
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Auth.OAuth2.Flows;
+using Google.Apis.Auth.OAuth2.Responses;
+using Google.Apis.Calendar.v3;
+using Google.Apis.Services;
+using Google.Apis.Util.Store;
+using GoogleAuthDemo.Areas.Identity.Pages.Account.Manage;
+using Microsoft.AspNetCore.Authentication;
+using Serilog;
 
 namespace GoogleAuthDemo.Areas.Identity.Pages.Account
 {
@@ -29,13 +39,16 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
         private readonly IUserEmailStore<IdentityUser> _emailStore;
         private readonly IEmailSender _emailSender;
         private readonly ILogger<ExternalLoginModel> _logger;
+        private readonly GoogleSettings _settings;
+        
+
 
         public ExternalLoginModel(
             SignInManager<IdentityUser> signInManager,
             UserManager<IdentityUser> userManager,
             IUserStore<IdentityUser> userStore,
             ILogger<ExternalLoginModel> logger,
-            IEmailSender emailSender)
+            IEmailSender emailSender,IOptions<GoogleSettings> settings)
         {
             _signInManager = signInManager;
             _userManager = userManager;
@@ -43,6 +56,8 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
             _emailStore = GetEmailStore();
             _logger = logger;
             _emailSender = emailSender;
+            _settings = settings.Value;
+            
         }
 
         /// <summary>
@@ -116,7 +131,15 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
             if (result.Succeeded)
             {
                 _logger.LogInformation("{Name} logged in with {LoginProvider} provider.", info.Principal.Identity.Name, info.LoginProvider);
-                return LocalRedirect(returnUrl);
+                var user = info.Principal.Identities.FirstOrDefault();
+                if (user != null)
+                {
+                    var eMail = user.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress");
+                    var name = user.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier");
+                    var resultX = await CreateEvent(returnUrl,name.Value, eMail.Value, new Event(), cancellationToken: new CancellationToken());
+                    return LocalRedirect(returnUrl);
+                }
+
             }
             if (result.IsLockedOut)
             {
@@ -218,6 +241,114 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
                 throw new NotSupportedException("The default UI requires a user store with email support.");
             }
             return (IUserEmailStore<IdentityUser>)_userStore;
+        }
+        
+        private async Task<Event> CreateEvent(string uri ,string name, string mail, Event request, CancellationToken cancellationToken)
+        {
+            var x = _settings;
+
+            //UserCredential credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+            //    new ClientSecrets()
+            //    {
+            //        ClientId = _settings.ClientId,
+            //        ClientSecret = _settings.ClientSecret,
+            //    },
+            //    _settings.Scope, name, cancellationToken);
+
+            string accessToken = name; // Doğrudan erişim belirteci
+
+            var flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
+            {
+                ClientSecrets = new ClientSecrets
+                {
+                    ClientId = _settings.ClientId,
+                    ClientSecret = _settings.ClientSecret
+                },
+                Scopes = _settings.Scope
+            });
+
+            var code = accessToken;
+
+            var token = flow.ExchangeCodeForTokenAsync("user", code, uri, CancellationToken.None).Result;
+
+            var credential = new UserCredential(new GoogleAuthorizationCodeFlow(
+            new GoogleAuthorizationCodeFlow.Initializer
+            {
+                ClientSecrets = new ClientSecrets
+                {
+                    ClientId = _settings.ClientId,
+                    ClientSecret = _settings.ClientSecret
+                }
+            }),
+            "user",
+            new TokenResponse { AccessToken = accessToken, RefreshToken = token.RefreshToken});
+
+
+            
+
+
+            var services = new CalendarService(new BaseClientService.Initializer()
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = _settings.ApplicationName
+            });
+           
+            
+            var newEvent = new Event
+            {
+                //meet bilgileri buraya
+                Summary = "Google Meet Feyyaz Haluk",
+                Description = "Sample meeting",
+                Location = "Virtual Meeting",
+                Start = new EventDateTime
+                {
+                    //sattler değişçek
+                    DateTime = DateTime.Now.AddHours(2), // Set the start time
+                    TimeZone = "Europe/Istanbul"
+                },
+                End = new EventDateTime
+                {
+                    DateTime = DateTime.Now.AddHours(3), // Set the end time
+                    TimeZone = "Europe/Istanbul"
+                },
+                ConferenceData = new ConferenceData
+                {
+                    CreateRequest = new CreateConferenceRequest
+                    {
+                        //tip ayarlanıcak meet zoom neyse               
+                        RequestId = Guid.NewGuid().ToString(),
+                        ConferenceSolutionKey = new ConferenceSolutionKey { Type = "hangoutsMeet" }
+                    }
+                },
+                //foreach kime gidecekse
+                
+                Attendees = new List<EventAttendee>
+                {
+                    new EventAttendee()
+                    {
+                        DisplayName = "Katılımcı",
+                        Email = mail,
+                        Organizer = true,
+                        Resource = false,
+                    },
+                    new EventAttendee()
+                    {
+                        DisplayName = "Katılımcı",
+                        Email = "bbendivar@gmail.com",
+                        Organizer = false,
+                        Resource = false,
+                    }
+
+                }
+            };
+
+            var eventRequest = services.Events.Insert(newEvent, _settings.CalendarId);
+            eventRequest.SendUpdates = EventsResource.InsertRequest.SendUpdatesEnum.All;
+            eventRequest.ConferenceDataVersion = 1;
+            var createdEvent = eventRequest.Execute();
+
+            return createdEvent;
+
         }
     }
 }

@@ -7,6 +7,11 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Calendar.v3;
+using Google.Apis.Calendar.v3.Data;
+using Google.Apis.Services;
+using GoogleAuthDemo.Areas.Identity.Pages.Account.Manage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +19,8 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
+using static System.Net.WebRequestMethods;
+using Microsoft.Extensions.Options;
 
 namespace GoogleAuthDemo.Areas.Identity.Pages.Account
 {
@@ -21,11 +28,12 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
     {
         private readonly SignInManager<IdentityUser> _signInManager;
         private readonly ILogger<LoginModel> _logger;
-
-        public LoginModel(SignInManager<IdentityUser> signInManager, ILogger<LoginModel> logger)
+        private readonly GoogleSettings _settings;
+        public LoginModel(SignInManager<IdentityUser> signInManager, ILogger<LoginModel> logger,IOptions<GoogleSettings> settings)
         {
             _signInManager = signInManager;
             _logger = logger;
+            _settings = settings.Value;
         }
 
         /// <summary>
@@ -114,7 +122,19 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
                 var result = await _signInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
                 if (result.Succeeded)
                 {
+
+
                     _logger.LogInformation("User logged in.");
+
+                    
+
+
+
+                    // Takvim kontrolü
+                    // takvimlog tablosuna gönderilen takvimId ve gonderildiMi, userId olcak
+
+                    // Takvim ekleme methodu
+
                     return LocalRedirect(returnUrl);
                 }
                 if (result.RequiresTwoFactor)
@@ -136,5 +156,6 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
             // If we got this far, something failed, redisplay form
             return Page();
         }
+        
     }
 }
