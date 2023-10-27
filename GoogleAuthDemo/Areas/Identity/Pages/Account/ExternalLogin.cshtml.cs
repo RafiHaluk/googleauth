@@ -127,7 +127,7 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
             }
 
             // Access token and refresh token
-            var accessToken = info.AuthenticationTokens.FirstOrDefault(t => t.Name == "access_token")?.Value;
+            //var accessToken = info.AuthenticationTokens.FirstOrDefault(t => t.Name == "access_token")?.Value;
             var refreshToken = info.AuthenticationTokens.FirstOrDefault(t => t.Name == "refresh_token")?.Value;
 
             // Sign in the user with this external login provider if the user already has a login.
@@ -140,7 +140,7 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
                 {
                     var eMail = user.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress");
                     var name = user.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier");
-                    var resultX = await CreateEvent(accessToken, refreshToken, returnUrl,name.Value, eMail.Value, new Event(), cancellationToken: new CancellationToken());
+                    var resultX = await CreateEvent(refreshToken,eMail.Value);
                     return LocalRedirect(returnUrl);
                 }
 
@@ -247,17 +247,11 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
             return (IUserEmailStore<IdentityUser>)_userStore;
         }
         
-        private async Task<Event> CreateEvent(string accessToken, string refreshToken, string uri ,string name, string mail, Event request, CancellationToken cancellationToken)
+        private async Task<Event> CreateEvent(string refreshToken, string mail)
         {
             var x = _settings;
-
-            //UserCredential credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-            //    new ClientSecrets()
-            //    {
-            //        ClientId = _settings.ClientId,
-            //        ClientSecret = _settings.ClientSecret,
-            //    },
-            //    _settings.Scope, name, cancellationToken);
+            //ClientId = _settings.ClientId,
+            //ClientSecret = _settings.ClientSecret,
 
             var credential = new UserCredential(new GoogleAuthorizationCodeFlow(
                 new GoogleAuthorizationCodeFlow.Initializer
