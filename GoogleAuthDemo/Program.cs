@@ -22,7 +22,7 @@ builder.Services.AddAuthentication().AddGoogle(options =>
 
     //this should enable a refresh-token, or so I believe
     options.AccessType = "offline"; 
-
+    s
     options.SaveTokens = true;
 
     //options.Events.OnCreatingTicket = ctx =>
