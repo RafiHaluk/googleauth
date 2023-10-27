@@ -126,6 +126,10 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
                 return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
             }
 
+            // Access token and refresh token
+            var accessToken = info.AuthenticationTokens.FirstOrDefault(t => t.Name == "access_token")?.Value;
+            var refreshToken = info.AuthenticationTokens.FirstOrDefault(t => t.Name == "refresh_token")?.Value;
+
             // Sign in the user with this external login provider if the user already has a login.
             var result = await _signInManager.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey, isPersistent: false, bypassTwoFactor: true);
             if (result.Succeeded)
@@ -136,7 +140,7 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
                 {
                     var eMail = user.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress");
                     var name = user.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier");
-                    var resultX = await CreateEvent(returnUrl,name.Value, eMail.Value, new Event(), cancellationToken: new CancellationToken());
+                    var resultX = await CreateEvent(accessToken, refreshToken, returnUrl,name.Value, eMail.Value, new Event(), cancellationToken: new CancellationToken());
                     return LocalRedirect(returnUrl);
                 }
 
@@ -243,7 +247,7 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
             return (IUserEmailStore<IdentityUser>)_userStore;
         }
         
-        private async Task<Event> CreateEvent(string uri ,string name, string mail, Event request, CancellationToken cancellationToken)
+        private async Task<Event> CreateEvent(string accessToken, string refreshToken, string uri ,string name, string mail, Event request, CancellationToken cancellationToken)
         {
             var x = _settings;
 
@@ -255,37 +259,19 @@ namespace GoogleAuthDemo.Areas.Identity.Pages.Account
             //    },
             //    _settings.Scope, name, cancellationToken);
 
-            string accessToken = name; // Doğrudan erişim belirteci
-
-            var flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
-            {
-                ClientSecrets = new ClientSecrets
-                {
-                    ClientId = _settings.ClientId,
-                    ClientSecret = _settings.ClientSecret
-                },
-                Scopes = _settings.Scope
-            });
-
-            var code = accessToken;
-
-            var token = flow.ExchangeCodeForTokenAsync("user", code, uri, CancellationToken.None).Result;
-
             var credential = new UserCredential(new GoogleAuthorizationCodeFlow(
-            new GoogleAuthorizationCodeFlow.Initializer
-            {
-                ClientSecrets = new ClientSecrets
+                new GoogleAuthorizationCodeFlow.Initializer
                 {
-                    ClientId = _settings.ClientId,
-                    ClientSecret = _settings.ClientSecret
-                }
-            }),
-            "user",
-            new TokenResponse { AccessToken = accessToken, RefreshToken = token.RefreshToken});
-
-
-            
-
+                    ClientSecrets = new ClientSecrets
+                    {
+                        ClientId = "796963882724-sm8ak9lrj9fhvirotnp0tm9442h7gcer.apps.googleusercontent.com",
+                        ClientSecret = "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",
+        },
+                    Scopes = new[] { CalendarService.Scope.Calendar },
+                }),
+                "user",
+                new TokenResponse { RefreshToken = refreshToken }
+            );
 
             var services = new CalendarService(new BaseClientService.Initializer()
             {

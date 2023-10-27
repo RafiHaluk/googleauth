@@ -19,26 +19,13 @@ builder.Services.AddAuthentication().AddGoogle(options =>
     options.Scope.Add("https://www.googleapis.com/auth/userinfo.email");
     options.Scope.Add("https://www.googleapis.com/auth/userinfo.profile");
     options.Scope.Add("https://www.googleapis.com/auth/calendar");
+    
+    //options.Scope.Add("offline_access");
+    options.AccessType = "offline";
 
-    //this should enable a refresh-token, or so I believe
-    options.AccessType = "offline"; 
-    s
+    options.AuthorizationEndpoint += "?prompt=consent";
+
     options.SaveTokens = true;
-
-    //options.Events.OnCreatingTicket = ctx =>
-    //{
-    //    List<AuthenticationToken> tokens = ctx.Properties.GetTokens().ToList();
-
-    //    tokens.Add(new AuthenticationToken()
-    //    {
-    //        Name = "TicketCreated",
-    //        Value = DateTime.UtcNow.ToString()
-    //    });
-
-    //    ctx.Properties.StoreTokens(tokens);
-
-    //    return Task.CompletedTask;
-    //};
 });
 
 // Add services to the container.
